@@ -1,2 +1,2 @@
 # Demo
-Implements a specific searhc and RAG 
+Implements a specific search and RAG 
