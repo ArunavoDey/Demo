@@ -105,14 +105,14 @@ def load_docs(link):
     return doc
 if __name__ == "__main__":
     torch.cuda.empty_cache()
-    os.environ["GOOGLE_CLOUD_API_KEY"]="AIzaSyC6496j4egJ2kZWo6EVjtRqNAlVpU0GkVg"#input("Enter passphrase for Google API:")
-    os.environ["GOOGLE_API_KEY"]="AIzaSyC6496j4egJ2kZWo6EVjtRqNAlVpU0GkVg"#input("Enter passphrase for Google API:")
-    os.environ["LANGCHAIN_API_KEY"]="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"#input("Enter passphrase for Langchain:")
+    os.environ["GOOGLE_CLOUD_API_KEY"]=input("Enter passphrase for Google API:")
+    os.environ["GOOGLE_API_KEY"]=input("Enter passphrase for Google API:")
+    os.environ["LANGCHAIN_API_KEY"]=input("Enter passphrase for Langchain:")
     os.environ["LANGCHAIN_TRACING_V2"]="True"
     os.environ["LANGCHAIN_ENDPOINT"]="https://api.smith.langchain.com"
-    os.environ["LANGCHAIN_PROJECT"]="pr-elderly-gravel-9"#input("Enter projectname for Langchain:")
+    os.environ["LANGCHAIN_PROJECT"]=input("Enter projectname for Langchain:")
     genai.configure(api_key=os.environ["GOOGLE_CLOUD_API_KEY"])
-    query = "Homicide numbers of new orleans and new york for years 2024, 2023, 2022, 2021 and 2020" #input("Enter your search query: ")
+    query = input("Enter your query: ")#"Homicide numbers of new orleans and new york for years 2024, 2023, 2022, 2021 and 2020" #input("Enter your search query: ")
     #num_results = int(input("Enter the number of results to return: "))
     link_array =[]
     # Get the URLs from the search results
@@ -182,6 +182,7 @@ if __name__ == "__main__":
         |StrOutputParser()
     )
     r = rag_chain.invoke(query)
+    print("LLM Agent response is: ")
     print(r)
     vector_store.delete_collection()
     
