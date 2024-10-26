@@ -34,6 +34,7 @@ def modify_response(agent, state, year):
 if __name__ == "__main__":
     
     # Environment configuration
+    """
     os.environ["LANGCHAIN_API_KEY"]=input("Enter passphrase for Langchain:")
     os.environ["LANGCHAIN_TRACING_V2"]="True"
     os.environ["LANGCHAIN_ENDPOINT"]="https://api.smith.langchain.com"
@@ -42,7 +43,15 @@ if __name__ == "__main__":
     os.environ["GOOGLE_CLOUD_API_KEY"]=input("Enter passphrase for Google API:")
     os.environ["GOOGLE_API_KEY"]=input("Enter passphrase for Google API:")
     genai.configure(api_key=os.environ["GOOGLE_CLOUD_API_KEY"])
-    
+    """
+    os.environ["LANGCHAIN_API_KEY"]=""#input("Enter passphrase for Langchain:")
+    os.environ["LANGCHAIN_TRACING_V2"]=""
+    os.environ["LANGCHAIN_ENDPOINT"]="https://api.smith.langchain.com"
+    os.environ["LANGCHAIN_PROJECT"]=""#input("Enter projectname for Langchain:")
+    os.environ["TAVILY_API_KEY"]=""#"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"#input("Enter passphrase for Tavily:")
+    os.environ["GOOGLE_CLOUD_API_KEY"]=""#input("Enter passphrase for Google API:")
+    os.environ["GOOGLE_API_KEY"]=""#input("Enter passphrase for Google API:")
+    #genai.configure(api_key=os.environ["GOOGLE_CLOUD_API_KEY"])
     
     genai.configure(api_key=os.environ["GOOGLE_CLOUD_API_KEY"])
     llm = ChatGoogleGenerativeAI(model="gemini-pro")
@@ -64,6 +73,7 @@ if __name__ == "__main__":
     # Dictionary to store homicide statistics
     stats = {state: {} for state in states}
 
+    
     # Use ThreadPoolExecutor to parallelize the queries
     with ThreadPoolExecutor(max_workers=5) as executor:
         future_to_state_year = {

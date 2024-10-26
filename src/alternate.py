@@ -1,7 +1,14 @@
+import os
+import copy
 import requests
 from bs4 import BeautifulSoup
 import requests, lxml
-import os
+from langchain_community.document_loaders import AsyncHtmlLoader
+from langchain_community.document_transformers import Html2TextTransformer
+import google.generativeai as genai
+from langchain_chroma import Chroma
+from langchain_community.embeddings import SentenceTransformerEmbeddings
+from uuid import uuid4
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain import hub
@@ -9,8 +16,19 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
-link_array = []
-def search_query(query, num_results=100):
+#from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+
+import bs4
+import re
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_google_vertexai import VertexAIEmbeddings
+from langchain_community.document_loaders import WebBaseLoader
+from langchain_huggingface import HuggingFaceEmbeddings
+import torch
+from concurrent.futures import ThreadPoolExecutor
+doc_l = []
+def search_query(query, link_array, num_results=100):
     # Construct the search URL (using Google search)
     response_array = []
     starts_array = [1, 101, 1000]
@@ -51,38 +69,108 @@ def search_query(query, num_results=100):
                     break
             """
             soup = BeautifulSoup(response.text, 'lxml')
+            #link_array = []
             idx_2 = 0
             for result in soup.select('.tF2Cxc'):
                 title = result.select_one('.DKV0Md').text
                 link = result.select_one('.yuRUbf a')['href']
+                if '.pdf' in link:
+                    continue
                 link_array.append(link)
                 print(title, link, sep='\n')
                 idx_2 = idx_2 + 1
-            print(f"there are {idx_2} results in {idx} response")
-            print(link_array)    
+            print(f"there are {idx_2} results in {idx} response")    
             #print(f"printing len for {idx} {len(link_array)}")
             starts = starts+ idx_2
             idx = idx + 1
         else:
             print(f"Error: Unable to fetch search results (status code: {response.status_code})")
     return link_array
+
+def load_docs(link):
+    global doc_l
+    loader = AsyncHtmlLoader(link)
+    doc = loader.load()
+    html2text = Html2TextTransformer()
+    documents_transformed = html2text.transform_documents(doc)
+    """
+    if len(doc_l) == 0:
+        doc_l = copy.deepcopy(documents_transformed)
+    else:
+        doc_l = doc_l + copy.deepcopy(documents_transformed)
+    """
+    doc_l.append(copy.deepcopy(documents_transformed))
+    print(f"printing from load docs {len(doc_l)}")
+    #print(len(doc_l))
+    return doc
 if __name__ == "__main__":
-    # Ask for user input
-    query = input("Enter your search query: ")
+    torch.cuda.empty_cache()
+    os.environ["GOOGLE_CLOUD_API_KEY"]="AIzaSyC6496j4egJ2kZWo6EVjtRqNAlVpU0GkVg"#input("Enter passphrase for Google API:")
+    os.environ["GOOGLE_API_KEY"]="AIzaSyC6496j4egJ2kZWo6EVjtRqNAlVpU0GkVg"#input("Enter passphrase for Google API:")
+    os.environ["LANGCHAIN_API_KEY"]="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"#input("Enter passphrase for Langchain:")
+    os.environ["LANGCHAIN_TRACING_V2"]="True"
+    os.environ["LANGCHAIN_ENDPOINT"]="https://api.smith.langchain.com"
+    os.environ["LANGCHAIN_PROJECT"]="pr-elderly-gravel-9"#input("Enter projectname for Langchain:")
+    genai.configure(api_key=os.environ["GOOGLE_CLOUD_API_KEY"])
+    query = "Homicide numbers of new orleans and new york for years 2024, 2023, 2022, 2021 and 2020" #input("Enter your search query: ")
     #num_results = int(input("Enter the number of results to return: "))
-
+    link_array =[]
     # Get the URLs from the search results
-    results = search_query(query)
-    os.environ["OPENAI_API_KEY"] = input("Enter passphrase for OpenAPI:")
+    results = search_query(query, link_array)
+    n_link_array = []
+    sub_array = []
+    #doc_l = []
+    for i in range(len(results)):
+        print(results[i])
+        sub_array.append(results[i])
+        if i%10 == 0 or i == len(results)-1:
+            n_link_array.append(copy.deepcopy(sub_array))
+            sub_array.clear()
 
-    print(results)
-    llm = ChatOpenAI(model="gpt-4o-mini")
+    docss = []
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        future = {executor.submit(load_docs, result):result for result in n_link_array}
+        #print(future)
+        #loader = AsyncHtmlLoader(result)
+        docss.append(future)
+    #print(doc_l[0])
+    print("printing docs")
+    #print(docss[0])
+    print("******************printing documents transformed***********************")
+    print(len(doc_l))
+    print(len(docss))
+    d_transformed = []
+    for doclist in doc_l:
+        for i in range(len(doclist)):
+            d_transformed.append(doclist[i])
+    print("printing length of actual documehts transformed")
+    print(len(d_transformed))
+    """
+    html2text = Html2TextTransformer()
+    documents_transformed = html2text.transform_documents(doc_l)
+    print("printing trannsformed documents content")
+    print(documents_transformed[0].page_content)
+    """
+    #embeddings = SentenceTransformerEmbeddings(model_name="nomic-ai/nomic-embed-text-v1", model_kwargs={"trust_remote_code":True})
+    model_name = "sentence-transformers/all-mpnet-base-v2"
+    model_kwargs = {'device': 'cpu'}
+    encode_kwargs = {'normalize_embeddings': False, 'batch_size':1}
+    hf = HuggingFaceEmbeddings(
+    model_name=model_name,
+    model_kwargs=model_kwargs,
+    encode_kwargs=encode_kwargs
+    )
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    splits = text_splitter.split_documents(docs[0:10])
-    vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings())
+    vector_store = Chroma(
+        collection_name="example_collection",
+        embedding_function= hf, #embeddings,
+        persist_directory="./chroma_langchain_db",  # Where to save data locally, remove if not necessary
+    )
+    uuids = [str(uuid4()) for _ in range(len(d_transformed))]
+    vector_store.add_documents(documents=d_transformed, ids=uuids)
+    llm = ChatGoogleGenerativeAI(model="gemini-pro")
 
-    retriever = vectorstore.as_retriever()
+    retriever = vector_store.as_retriever()
     prompt = hub.pull("rlm/rag-prompt")
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
@@ -93,6 +181,7 @@ if __name__ == "__main__":
         |llm
         |StrOutputParser()
     )
-    rag_chain.invoke(query)
-    vectorstore.delete_collection()
-
+    r = rag_chain.invoke(query)
+    print(r)
+    vector_store.delete_collection()
+    
